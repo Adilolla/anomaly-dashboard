@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Anomaly Dashboard</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: sans-serif;
+            background: #0f172a;
+            color: #e2e8f0;
+            padding: 2rem;
+        }
+
+        h1 {
+            color: #38bdf8;
+            margin-bottom: 0.5rem;
+        }
+
+        .stats {
+            display: flex;
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .card {
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 1.2rem 2rem;
+        }
+
+        .card h3 {
+            font-size: 0.85rem;
+            color: #94a3b8;
+            margin-bottom: 0.3rem;
+        }
+
+        .card p {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+
+        .red {
+            color: #f87171;
+        }
+
+        .green {
+            color: #4ade80;
+        }
+
+        .blue {
+            color: #38bdf8;
+        }
+
+        canvas {
+            background: #1e293b;
+            border-radius: 10px;
+            padding: 1rem;
+            width: 100% !important;
+        }
+
+        #log {
+            margin-top: 1.5rem;
+            max-height: 220px;
+            overflow-y: auto;
+            background: #1e293b;
+            padding: 1rem;
+            border-radius: 10px;
+        }
+
+        #log h3 {
+            color: #94a3b8;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+        }
+
+        .log-row {
+            padding: 0.3rem 0;
+            border-bottom: 1px solid #334155;
+            font-size: 0.9rem;
+        }
+
+        .anomaly {
+            color: #f87171;
+        }
+
+        .normal {
+            color: #4ade80;
+        }
+
+        #status {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #4ade80;
+            margin-right: 0.5rem;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>🔴 Real-Time Anomaly Dashboard</h1>
+    <p style="color:#94a3b8; margin-top:0.3rem"><span id="status"></span>Connected to live stream</p>
+
+    <div class="stats">
+        <div class="card">
+            <h3>Total Events</h3>
+            <p class="blue" id="total">0</p>
+        </div>
+        <div class="card">
+            <h3>Anomalies Detected</h3>
+            <p class="red" id="anomaly-count">0</p>
+        </div>
+        <div class="card">
+            <h3>Normal Events</h3>
+            <p class="green" id="normal-count">0</p>
+        </div>
+    </div>
+
+    <canvas id="chart" height="100"></canvas>
+
+    <div id="log">
+        <h3>LIVE EVENT LOG</h3>
+        <div id="log-body"></div>
+    </div>
+
+    <script>
+        const socket = io('http://localhost:3000');
+        let total = 0, anomalies = 0, normals = 0;
+        const labels = [], dataPoints = [], colors = [];
+
+        const chart = new Chart(document.getElementById('chart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Event Value',
+                    data: dataPoints,
+                    borderColor: '#38bdf8',
+                    pointBackgroundColor: colors,
+                    pointRadius: 5,
+                    tension: 0.3,
+                    fill: false
+                }]
+            },
+            options: {
+                animation: false,
+                plugins: { legend: { labels: { color: '#e2e8f0' } } },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } }
+                }
+            }
+        });
+
+        fetch('http://localhost:3000/api/results')
+            .then(r => r.json())
+            .then(rows => rows.reverse().forEach(addRow));
+
+        socket.on('new_result', addRow);
+
+        socket.on('connect', () => {
+            document.getElementById('status').style.background = '#4ade80';
+        });
+        socket.on('disconnect', () => {
+            document.getElementById('status').style.background = '#f87171';
+        });
+
+        function addRow(row) {
+            const time = new Date(row.created_at).toLocaleTimeString();
+            total++;
+            row.is_anomaly ? anomalies++ : normals++;
+            document.getElementById('total').textContent = total;
+            document.getElementById('anomaly-count').textContent = anomalies;
+            document.getElementById('normal-count').textContent = normals;
+
+            labels.push(time);
+            dataPoints.push(row.value);
+            colors.push(row.is_anomaly ? '#f87171' : '#4ade80');
+            if (labels.length > 50) { labels.shift(); dataPoints.shift(); colors.shift(); }
+            chart.update();
+
+            const icon = row.is_anomaly ? '🚨' : '✅';
+            const cls = row.is_anomaly ? 'anomaly' : 'normal';
+            const log = document.getElementById('log-body');
+            log.innerHTML = `<div class="log-row ${cls}">${icon} [${time}] value=${row.value} | score=${row.anomaly_score} | ${row.label || 'no label'}</div>` + log.innerHTML;
+        }
+    </script>
+</body>
+
+</html>
