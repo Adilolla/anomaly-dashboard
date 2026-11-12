@@ -1,0 +1,1 @@
+{"name":"ultron-telemetry-simulator","private":true,"type":"module","scripts":{"start":"node src/simulator.js"}}

@@ -9,6 +9,7 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./database/migrations/002_ultron_robot.sql:/docker-entrypoint-initdb.d/002_ultron_robot.sql:ro
       - ./database/seeds/001_baseline.sql:/docker-entrypoint-initdb.d/002_baseline.sql:ro
     healthcheck: {test: ["CMD", "mysqladmin", "ping", "-h", "localhost"], interval: 5s, timeout: 5s, retries: 20}
   redis:
@@ -23,6 +24,18 @@ services:
     build: {context: ., dockerfile: services/inference/Dockerfile}
     env_file: .env
     depends_on: {mysql: {condition: service_healthy}, redis: {condition: service_healthy}}
+  telemetry-simulator:
+    build: ./services/simulator
+    environment:
+      API_URL: http://api:3000
+      SIMULATOR_INTERVAL_MS: 2500
+    depends_on: {api: {condition: service_started}}
+  telemetry-simulator:
+    build: ./services/simulator
+    environment:
+      API_URL: http://api:3000
+      SIMULATOR_INTERVAL_MS: 2500
+    depends_on: {api: {condition: service_started}}
   frontend:
     build: ./frontend
     depends_on: [api]

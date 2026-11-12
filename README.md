@@ -1,14 +1,14 @@
-# Real-time anomaly platform
+# Ultron Humanoid Anomaly Dashboard
 
-This repository ingests multivariate infrastructure telemetry, persists it in MySQL, scores it in an event-driven Python worker, and streams completed results to a browser dashboard through Redis Streams and Socket.IO.
+This repository is a synthetic humanoid-robot digital twin. It ingests fake ULTRON-01 hardware telemetry, persists it in MySQL, scores it with a PyTorch autoencoder, maps anomalies to robot subsystems, and streams repair guidance to a browser dashboard through Redis Streams and Socket.IO. BlueRock wraps the inference worker for free runtime visibility into the agentic diagnostic path.
 
 ## Architecture
 
 ```text
-dashboard -> API -> MySQL events -> Redis anomaly:events
-                              -> inference consumer group -> MySQL results
-                                                        -> Redis anomaly:results
-                                                        -> API relay -> Socket.IO
+telemetry simulator -> API -> MySQL events -> Redis anomaly:events
+                                      -> PyTorch inference + repair advisor -> MySQL results
+                                                                      -> Redis anomaly:results
+                                                                      -> API relay -> Socket.IO -> robot dashboard
 ```
 
 The API uses repositories and services so HTTP concerns, persistence, and queue delivery remain independently testable. The worker acknowledges a message only after an idempotent result write. Unique `(event_id, model_version)` keys make redelivery safe. Result publication is a separate stream, so a worker restart cannot cause a second result row.
@@ -20,7 +20,7 @@ cp .env.example .env
 docker compose up --build
 ```
 
-Open <http://localhost:8080>. The API is at <http://localhost:3000>; health is available at `/api/health`.
+Open <http://localhost:8080>. The API is at <http://localhost:3000>; health is available at `/api/health`. The simulator injects repeatable faults into the left knee, right shoulder, battery pack, vision stack, and balance IMU.
 
 ## Configuration
 
@@ -36,7 +36,7 @@ curl 'http://localhost:3000/api/results?limit=20'
 
 ## Model workflow
 
-The worker loads `MODEL_PATH` and records `MODEL_VERSION` on every prediction. For development, `ALLOW_BASELINE_MODEL=true` enables a deterministic baseline when no artifact exists. A training command and artifact registry are intentionally kept separate from startup; a trained artifact must be mounted into the worker before production use. Evaluation utilities report precision, recall, F1, false-positive rate, and false-negative rate when labels are available.
+The worker loads `MODEL_PATH` and records `MODEL_VERSION` on every prediction. For development, `ALLOW_BASELINE_MODEL=true` enables a deterministic baseline when no artifact exists. The free Ultron Repair Advisor translates the affected subsystem into a diagnosis and safe simulated action. BlueRock observes the worker process and emits structured runtime events; it does not autonomously control real hardware.
 
 ## Tests
 

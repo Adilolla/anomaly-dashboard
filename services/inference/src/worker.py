@@ -5,6 +5,7 @@ from config.settings import settings
 from inference.model_loader import load_model, score
 from inference.scoring import classify
 from preprocessing.telemetry import vectorize
+from advisor import advise
 
 EVENT_STREAM = 'anomaly:events'; RESULT_STREAM = 'anomaly:results'; GROUP = 'inference-workers'
 
@@ -19,11 +20,11 @@ class InferenceWorker:
     def process(self, event_id):
         cursor = self.db.cursor(dictionary=True); cursor.execute('SELECT * FROM events WHERE id = %s', (event_id,)); event = cursor.fetchone()
         if not event: raise ValueError(f'event {event_id} does not exist')
-        values = vectorize(event); anomaly_score = score(self.model, values); is_anomaly = classify(anomaly_score, self.threshold); run_id = str(uuid.uuid4())
+        values = vectorize(event); anomaly_score = score(self.model, values); is_anomaly = classify(anomaly_score, self.threshold); run_id = str(uuid.uuid4()); advice = advise(event.get('metadata') or {})
         cursor.execute('INSERT IGNORE INTO inference_runs (id, event_id, model_version, status) VALUES (%s, %s, %s, \'running\')', (run_id, event_id, self.config['MODEL_VERSION']))
-        cursor.execute('INSERT IGNORE INTO anomaly_results (event_id, model_version, anomaly_score, is_anomaly, threshold_used) VALUES (%s, %s, %s, %s, %s)', (event_id, self.config['MODEL_VERSION'], anomaly_score, is_anomaly, self.threshold))
+        cursor.execute('INSERT IGNORE INTO anomaly_results (event_id, model_version, anomaly_score, is_anomaly, threshold_used, component_id, component_name, fault_code, severity, diagnosis, recommended_action, advisor_confidence) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)', (event_id, self.config['MODEL_VERSION'], anomaly_score, is_anomaly, self.threshold, advice['component_id'], advice['component_name'], advice['fault_code'], advice['severity'], advice['diagnosis'], advice['recommended_action'], advice['advisor_confidence']))
         cursor.execute("UPDATE inference_runs SET status='succeeded', finished_at=CURRENT_TIMESTAMP(6) WHERE id=%s", (run_id,)); self.db.commit()
-        self.queue.xadd(RESULT_STREAM, {'event_id': str(event_id), 'inference_run_id': run_id, 'model_version': self.config['MODEL_VERSION'], 'anomaly_score': str(anomaly_score), 'is_anomaly': '1' if is_anomaly else '0', 'threshold_used': str(self.threshold)})
+        self.queue.xadd(RESULT_STREAM, {'event_id': str(event_id), 'inference_run_id': run_id, 'model_version': self.config['MODEL_VERSION'], 'anomaly_score': str(anomaly_score), 'is_anomaly': '1' if is_anomaly else '0', 'threshold_used': str(self.threshold), 'component_id': advice['component_id'], 'component_name': advice['component_name'], 'fault_code': advice['fault_code'], 'severity': advice['severity'], 'diagnosis': advice['diagnosis'], 'recommended_action': advice['recommended_action'], 'advisor_confidence': str(advice['advisor_confidence'])})
     def run_once(self, consumer):
         messages = self.queue.xreadgroup(GROUP, consumer, {EVENT_STREAM: '>'}, count=10, block=5000)
         for _, entries in messages:
