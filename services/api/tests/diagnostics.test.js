@@ -42,7 +42,7 @@ test('sends only grounded context to Ollama', async () => {
 });
 
 test('validates diagnostic question input', () => {
-  assert.deepEqual(validateDiagnosticQuestion({ robotId: 'ULTRON-03', componentId: 'left_knee', question: ' Why? ' }), { robotId: 'ULTRON-03', componentId: 'left_knee', question: 'Why?' });
+  assert.deepEqual(validateDiagnosticQuestion({ robotId: 'ULTRON-03', componentId: 'left_knee', question: ' Why? ' }), { robotId: 'ULTRON-03', componentId: 'left_knee', question: 'Why?', diagnosticId: null });
   assert.throws(() => validateDiagnosticQuestion({ robotId: 'ULTRON-03', componentId: 'left_knee', question: '' }), /required/);
   assert.throws(() => validateDiagnosticQuestion({ robotId: 'ULTRON-03', componentId: 'left_knee', question: 'x'.repeat(501) }), /required/);
 });

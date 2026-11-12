@@ -28,8 +28,9 @@ function createApp({ pool, redis, config }) {
   app.get('/api/results/:id', async (req, res, next) => { try { const row = await results.getById(Number(req.params.id)); if (!row) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Result not found' } }); res.json(row); } catch (e) { next(e); } });
   app.post('/api/diagnostics/ask', async (req, res, next) => {
     try {
-      const { robotId, componentId, question } = validateDiagnosticQuestion(req.body);
-      const record = await results.getLatestDiagnostic({ robotId, componentId });
+      const { robotId, componentId, question, diagnosticId } = validateDiagnosticQuestion(req.body);
+      const selected = diagnosticId == null ? null : await results.getById(diagnosticId);
+      const record = selected && selected.component_id === componentId ? selected : await results.getLatestDiagnostic({ robotId, componentId });
       const context = buildDiagnosticContext(record);
       if (!context) return res.json({ answer: deterministicAnswer(null, question), source: 'deterministic', diagnosticId: null });
       try {
