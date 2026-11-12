@@ -22,6 +22,45 @@ docker compose up --build
 
 Open <http://localhost:8080>. The API is at <http://localhost:3000>; health is available at `/api/health`. The simulator injects repeatable faults into the left knee, right shoulder, battery pack, vision stack, and balance IMU.
 
+## Local Diagnostics Agent
+
+The Repair Advisor combines deterministic fault analysis with an optional locally hosted Qwen instruct model. PyTorch and the deterministic rules determine the actual system state; Qwen only explains that structured result and answers grounded questions about the selected robot component. The dashboard and API continue working without Ollama.
+
+### Install and run Ollama
+
+Install [Ollama](https://ollama.com), then download the lightweight model:
+
+```bash
+ollama pull qwen2.5:3b
+ollama serve
+```
+
+Configure `.env` (the defaults are already in `.env.example`):
+
+```bash
+OLLAMA_HOST=http://host.docker.internal:11434
+OLLAMA_MODEL=qwen2.5:3b
+OLLAMA_TIMEOUT_MS=7000
+```
+
+Start ULTRON:
+
+```bash
+docker compose up --build
+```
+
+Select a component in the dashboard and use the Repair Advisor questions. `LOCAL AI: qwen2.5:3b` means Ollama answered. If Ollama is unavailable, the panel shows `LOCAL AI: OFFLINE · DETERMINISTIC ACTIVE` and uses the existing rule-based guidance.
+
+The grounded endpoint is:
+
+```bash
+curl -X POST http://localhost:3000/api/diagnostics/ask \
+  -H 'content-type: application/json' \
+  -d '{"robotId":"ULTRON-01","componentId":"left_knee","question":"What should I inspect first?"}'
+```
+
+The model cannot inject faults, clear faults, modify database records, or control the simulator. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the reasoning-layer boundary.
+
 ## Configuration
 
 See `.env.example`. Required runtime values include database connection settings, `REDIS_URL`, `ANOMALY_THRESHOLD`, `MODEL_VERSION`, `API_PORT`, and `NODE_ENV`. Never commit `.env`, credentials, or model artifacts.

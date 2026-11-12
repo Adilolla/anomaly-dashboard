@@ -5,7 +5,7 @@
   "main": "services/api/src/index.js",
   "scripts": {
     "start": "node services/api/src/index.js",
-    "test": "node --test services/api/tests/telemetry.test.js",
+    "test": "node --test services/api/tests/telemetry.test.js services/api/tests/diagnostics.test.js",
     "test:python": "python -m pytest services/inference/tests"
   },
   "keywords": [],
