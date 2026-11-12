@@ -30,12 +30,6 @@ services:
       API_URL: http://api:3000
       SIMULATOR_INTERVAL_MS: 2500
     depends_on: {api: {condition: service_started}}
-  telemetry-simulator:
-    build: ./services/simulator
-    environment:
-      API_URL: http://api:3000
-      SIMULATOR_INTERVAL_MS: 2500
-    depends_on: {api: {condition: service_started}}
   frontend:
     build: ./frontend
     depends_on: [api]
