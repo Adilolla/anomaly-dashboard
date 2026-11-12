@@ -9,7 +9,6 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
       - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
-      - ./database/migrations/002_ultron_robot.sql:/docker-entrypoint-initdb.d/002_ultron_robot.sql:ro
       - ./database/seeds/001_baseline.sql:/docker-entrypoint-initdb.d/002_baseline.sql:ro
     healthcheck: {test: ["CMD", "mysqladmin", "ping", "-h", "localhost"], interval: 5s, timeout: 5s, retries: 20}
   redis:
