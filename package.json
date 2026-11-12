@@ -1,0 +1,22 @@
+{
+  "name": "anomaly-dashboard",
+  "version": "1.0.0",
+  "description": "Event-driven real-time anomaly detection platform",
+  "main": "services/api/src/index.js",
+  "scripts": {
+    "start": "node services/api/src/index.js",
+    "test": "node --test services/api/tests/telemetry.test.js",
+    "test:python": "python -m pytest services/inference/tests"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "mysql2": "^3.17.2",
+    "redis": "^5.9.0",
+    "socket.io": "^4.8.3"
+  }
+}

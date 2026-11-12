@@ -1,140 +1,49 @@
-# 🚀 anomaly-dashboard
+# Real-time anomaly platform
 
-A simple full-stack **real-time anomaly detection dashboard** built with MySQL, Python (PyTorch), Node.js, and Socket.IO.
+This repository ingests multivariate infrastructure telemetry, persists it in MySQL, scores it in an event-driven Python worker, and streams completed results to a browser dashboard through Redis Streams and Socket.IO.
 
-When a new value is inserted into a MySQL database, a Python ML service checks whether it is an anomaly using a **PyTorch Autoencoder neural network**. The result is pushed live to a web dashboard using **Socket.IO** — no page refresh required.
+## Architecture
 
----
+```text
+dashboard -> API -> MySQL events -> Redis anomaly:events
+                              -> inference consumer group -> MySQL results
+                                                        -> Redis anomaly:results
+                                                        -> API relay -> Socket.IO
+```
 
-# 📅 Project Updates
+The API uses repositories and services so HTTP concerns, persistence, and queue delivery remain independently testable. The worker acknowledges a message only after an idempotent result write. Unique `(event_id, model_version)` keys make redelivery safe. Result publication is a separate stream, so a worker restart cannot cause a second result row.
 
-## ✅ v1.0 — Initial Release (2026-02-18)
+## Run locally with Docker
 
-- REST API to insert events
-- MySQL `events` and `anomaly_results` tables
-- PyTorch Autoencoder for anomaly detection
-- Python polling service (runs every 2 seconds)
-- Node.js + Express backend
-- Socket.IO real-time updates
-- Live Chart.js dashboard
-- Anomaly counter
-- Normal event counter
-- Color-coded event log
-- Connection status indicator
+```bash
+cp .env.example .env
+docker compose up --build
+```
 
-Future updates will be logged here.
+Open <http://localhost:8080>. The API is at <http://localhost:3000>; health is available at `/api/health`.
 
----
+## Configuration
 
-# 🧩 How It Works (Step-by-Step)
+See `.env.example`. Required runtime values include database connection settings, `REDIS_URL`, `ANOMALY_THRESHOLD`, `MODEL_VERSION`, `API_PORT`, and `NODE_ENV`. Never commit `.env`, credentials, or model artifacts.
 
-1. A new event is inserted into the `events` table.
-2. Python (`detector.py`) checks for new rows every 2 seconds.
-3. The Autoencoder calculates reconstruction error.
-4. If the error is high → it is marked as an anomaly.
-5. The result is written to `anomaly_results`.
-6. Node.js emits the update via Socket.IO.
-7. The dashboard updates instantly.
+## API example
 
----
+```bash
+curl -X POST http://localhost:3000/api/events -H 'content-type: application/json' \
+  -d '{"source":"web-01","cpu_usage":82.1,"memory_usage":65.4,"request_rate":1200}'
+curl 'http://localhost:3000/api/results?limit=20'
+```
 
-# 🏗 System Architecture
+## Model workflow
 
-MySQL (events)
-│
-▼
-Python ML Service (Autoencoder)
-│
-▼
-MySQL (anomaly_results)
-│
-▼
-Node.js + Socket.IO
-│
-▼
-Live Dashboard (Chart.js)
+The worker loads `MODEL_PATH` and records `MODEL_VERSION` on every prediction. For development, `ALLOW_BASELINE_MODEL=true` enables a deterministic baseline when no artifact exists. A training command and artifact registry are intentionally kept separate from startup; a trained artifact must be mounted into the worker before production use. Evaluation utilities report precision, recall, F1, false-positive rate, and false-negative rate when labels are available.
 
+## Tests
 
----
+```bash
+npm install
+npm test
+python -m pytest services/inference/tests
+```
 
-# 🛠 Tech Stack
-
-| Layer | Technology |
-|-------|------------|
-| Database | MySQL 8 |
-| ML Service | Python 3 + PyTorch |
-| Backend | Node.js + Express |
-| Realtime | Socket.IO |
-| Frontend | HTML + Chart.js |
-# 🔮 Roadmap & Future Updates
-
-This project will continue evolving to become a more production-ready real-time ML system.
-
-## 🚀 Upcoming Improvements
-
-### 1️⃣ Model Improvements
-- Add proper training pipeline (separate training script)
-- Save and load trained model weights
-- Add configurable anomaly threshold
-- Support multivariate inputs (not just a single value)
-- Add model evaluation metrics (precision, recall, F1-score)
-
-### 2️⃣ Performance Enhancements
-- Replace 2-second polling with event-driven architecture
-- Use message queue (Redis / Kafka) instead of DB polling
-- Optimize database queries
-- Add batching for ML inference
-- Add async processing in Python service
-
-### 3️⃣ DevOps & Deployment
-- Dockerize entire project
-- Add docker-compose for full stack setup
-- Environment variable configuration (.env)
-- Production logging system
-- Cloud deployment (AWS / GCP / Azure)
-- CI/CD pipeline
-
-### 4️⃣ Dashboard Improvements
-- Historical data view
-- Adjustable time ranges
-- Error distribution visualization
-- Threshold adjustment slider (live tuning)
-- Download results as CSV
-- Dark mode UI
-
-### 5️⃣ Security & Production Readiness
-- Authentication (JWT-based login)
-- Rate limiting on API
-- Input validation & sanitization
-- Secure database credentials
-- HTTPS support
-
-### 6️⃣ Advanced ML Features
-- Add alternative models (LSTM, Isolation Forest)
-- Real-time model retraining
-- Concept drift detection
-- Model monitoring dashboard
-- Store anomaly explanations
-
----
-
-## 📅 Planned Version Updates
-
-### v1.1
-- Environment variable config
-- Saved model weights
-- Docker support
-
-### v1.2
-- Remove polling → event-based architecture
-- Dashboard enhancements
-
-### v2.0
-- Scalable production architecture
-- Advanced anomaly detection models
-- Cloud deployment
-
----
-
-This roadmap will guide the evolution of anomaly-dashboard from a demo system to a scalable real-time ML platform.
-
+The Python unit tests cover sparse telemetry, inclusive thresholds, and label-based metrics. The database/Redis integration boundary is represented by injectable API repositories and worker dependencies; run the Compose stack for an end-to-end smoke test.

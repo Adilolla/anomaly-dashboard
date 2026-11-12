@@ -1,0 +1,30 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-anomaly_dashboard}
+      MYSQL_USER: ${DB_USER:-anomaly}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-change-me}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-local-root-change-me}
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./database/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
+      - ./database/seeds/001_baseline.sql:/docker-entrypoint-initdb.d/002_baseline.sql:ro
+    healthcheck: {test: ["CMD", "mysqladmin", "ping", "-h", "localhost"], interval: 5s, timeout: 5s, retries: 20}
+  redis:
+    image: redis:7-alpine
+    healthcheck: {test: ["CMD", "redis-cli", "ping"], interval: 5s, timeout: 3s, retries: 20}
+  api:
+    build: {context: ., dockerfile: services/api/Dockerfile}
+    env_file: .env
+    depends_on: {mysql: {condition: service_healthy}, redis: {condition: service_healthy}}
+    ports: ["${API_PORT:-3000}:3000"]
+  inference-worker:
+    build: {context: ., dockerfile: services/inference/Dockerfile}
+    env_file: .env
+    depends_on: {mysql: {condition: service_healthy}, redis: {condition: service_healthy}}
+  frontend:
+    build: ./frontend
+    depends_on: [api]
+    ports: ["8080:8080"]
+volumes: {mysql-data:}
