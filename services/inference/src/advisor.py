@@ -11,4 +11,16 @@ ADVICE = {
 
 def advise(metadata):
     component = (metadata or {}).get('component_id', 'core_compute')
-    return ADVICE.get(component, ('UNKNOWN_HUMANOID_FAULT', 'info', 'Telemetry drift was detected in an unmapped subsystem.', 'Collect more telemetry before taking an automated action.', 0.55)) | {'component_id': component, 'component_name': (metadata or {}).get('component_name', component.replace('_', ' ').title())}
+    fault_code, severity, diagnosis, recommended_action, confidence = ADVICE.get(
+        component,
+        ('UNKNOWN_HUMANOID_FAULT', 'info', 'Telemetry drift was detected in an unmapped subsystem.', 'Collect more telemetry before taking an automated action.', 0.55),
+    )
+    return {
+        'component_id': component,
+        'component_name': (metadata or {}).get('component_name', component.replace('_', ' ').title()),
+        'fault_code': fault_code,
+        'severity': severity,
+        'diagnosis': diagnosis,
+        'recommended_action': recommended_action,
+        'advisor_confidence': confidence,
+    }
