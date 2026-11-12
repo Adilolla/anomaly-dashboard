@@ -13,7 +13,7 @@ async function emit() {
   const scenario = scenarios[tick % scenarios.length];
   const faultActive = tick % 4 === 3;
   const profile = faultActive ? scenario.fault : scenario.base;
-  const payload = { source: `ultron-${scenario.component_id}`, ...Object.fromEntries(Object.entries(profile).map(([key, value]) => [key, jitter(value)])), label: faultActive ? 'synthetic_fault' : 'synthetic_normal', metadata: { robot_id: 'ULTRON-01', robot_name: 'Ultron Humanoid', component_id: scenario.component_id, component_name: scenario.component_name, fault_code: faultActive ? scenario.fault_code : null, fault_active: faultActive, simulator_tick: tick, telemetry_profile: faultActive ? 'fault-injection' : 'nominal' } };
+  const payload = { source: `ultron-${scenario.component_id}`, ...Object.fromEntries(Object.entries(profile).map(([key, value]) => [key, jitter(value)])), label: faultActive, metadata: { robot_id: 'ULTRON-01', robot_name: 'Ultron Humanoid', component_id: scenario.component_id, component_name: scenario.component_name, fault_code: faultActive ? scenario.fault_code : null, fault_active: faultActive, simulator_tick: tick, telemetry_profile: faultActive ? 'fault-injection' : 'nominal' } };
   try { const response = await fetch(`${api}/api/events`, { method: 'POST', headers: { 'content-type': 'application/json', 'Idempotency-Key': `ultron-${tick}` }, body: JSON.stringify(payload) }); if (!response.ok) console.error(await response.text()); else console.log(JSON.stringify({ event: 'ultron_telemetry_emitted', component: scenario.component_id, faultActive })); } catch (error) { console.error(error.message); }
   tick += 1;
 }
